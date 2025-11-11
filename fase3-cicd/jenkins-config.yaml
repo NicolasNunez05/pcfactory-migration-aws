@@ -1,0 +1,28 @@
+# Jenkins Configuration - Phase 3
+jenkins:
+  version: "2023.09.17"
+  deployment:
+    type: Docker
+    image: jenkins/jenkins:lts
+    port: 8080
+    container_name: jenkins-pcfactory
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+
+credentials:
+  - type: GitHub
+    id: github-credentials
+    scope: GLOBAL
+
+plugins:
+  - Pipeline
+  - Git
+  - Docker
+  - GitHub
+
+pipeline:
+  name: pcfactory-pipeline
+  repository: https://github.com/NicolasNunez05/pcfactory-migration.git
+  branch: main
+  jenkinsfile: Jenkinsfile
