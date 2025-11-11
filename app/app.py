@@ -1,73 +1,57 @@
-from flask import Flask, jsonify
-import psycopg2
-import os
-import logging
+from flask import Flask, jsonify, request
 from datetime import datetime
+import os
 
 app = Flask(__name__)
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-DB_HOST = os.getenv('DB_HOST', 'db.corp.local')
-DB_NAME = os.getenv('DB_NAME', 'pcfactory')
-DB_USER = os.getenv('DB_USER', 'postgres')
-DB_PASSWORD = os.getenv('DB_PASSWORD', 'password')
-DB_PORT = os.getenv('DB_PORT', '5432')
-
-def get_db_connection():
-    try:
-        conn = psycopg2.connect(
-            host=DB_HOST,
-            database=DB_NAME,
-            user=DB_USER,
-            password=DB_PASSWORD,
-            port=DB_PORT,
-            connect_timeout=5
-        )
-        return conn
-    except Exception as e:
-        logger.error(f"Database connection error: {str(e)}")
-        raise
-
-@app.route('/')
-def index():
-    return jsonify({"message": "Bienvenido al sistema de PCFactory", "timestamp": datetime.now().isoformat()})
-
-@app.route('/health')
+@app.route('/health', methods=['GET'])
 def health():
-    try:
-        conn = get_db_connection()
-        conn.close()
-        return jsonify({"status": "healthy", "database": "connected"}), 200
-    except Exception as e:
-        logger.error(f"Health check failed: {str(e)}")
-        return jsonify({"status": "unhealthy", "error": str(e)}), 500
+    """Endpoint para health check"""
+    return jsonify({
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "version": "1.0.0"
+    }), 200
 
-@app.route('/products')
-def get_products():
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute('SELECT id, name, price FROM products;')
-        products = cur.fetchall()
-        cur.close()
-        conn.close()
-        
-        logger.info(f"Retrieved {len(products)} products")
-        return jsonify(products), 200
-    except Exception as e:
-        logger.error(f"Error retrieving products: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+@app.route('/api/v1/status', methods=['GET'])
+def status():
+    """Estado de la aplicación"""
+    return jsonify({
+        "app": "PCFactory",
+        "environment": os.getenv('ENVIRONMENT', 'development'),
+        "status": "running"
+    }), 200
+
+@app.route('/api/v1/data', methods=['POST'])
+def create_data():
+    """Crear datos"""
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    return jsonify({
+        "message": "Data received",
+        "data": data,
+        "received_at": datetime.now().isoformat()
+    }), 201
+
+@app.route('/api/v1/data', methods=['GET'])
+def get_data():
+    """Obtener datos"""
+    return jsonify({
+        "items": [],
+        "total": 0
+    }), 200
 
 @app.errorhandler(404)
 def not_found(error):
-    return jsonify({"error": "Endpoint not found"}), 404
+    return jsonify({"error": "Not found"}), 404
 
 @app.errorhandler(500)
 def internal_error(error):
-    logger.error(f"Internal server error: {str(error)}")
     return jsonify({"error": "Internal server error"}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080, debug=False)
+    port = int(os.getenv('PORT', 8080))
+    debug = os.getenv('DEBUG', 'False').lower() == 'true'
+    app.run(host='0.0.0.0', port=port, debug=debug)
