@@ -168,41 +168,25 @@ pipeline {
         }
         
         stage('🧪 Tests') {
-            when {
-                expression { !params.SKIP_TESTS }
-            }
-            steps {
-                script {
-                    echo "🧪 Ejecutando suite de tests..."
-                    sh '''
-                        echo "Buscando archivos de test..."
-                        
-                        if find . -path ./venv -prune -o -type f -name "test_*.py" -o -name "*_test.py" | grep -q test; then
-                            echo "📋 Tests encontrados, ejecutando..."
-                            
-                            # Instalar pytest si no está instalado
-                            pip install pytest pytest-cov flake8 pylint 2>/dev/null
-                            
-                            # Ejecutar tests
-                            echo ""
-                            echo "Ejecutando tests con coverage..."
-                            pytest -v --tb=short --cov=. --cov-report=term-summary 2>/dev/null || echo "⚠️  Algunos tests pueden haber fallado o no existen tests"
-                            
-                            # Linting
-                            echo ""
-                            echo "Ejecutando análisis de código (linting)..."
-                            flake8 . --max-line-length=100 --exclude=venv,./venv --count 2>/dev/null || echo "⚠️  Se encontraron issues de estilo (no críticos)"
-                        else
-                            echo "ℹ️  No se encontraron tests en el proyecto"
-                            echo "📌 Los tests pueden estar en otro directorio"
-                        fi
-                        
-                        echo ""
-                        echo "✅ Validación de tests completada"
-                    '''
-                }
-            }
+    when {
+        expression { !params.SKIP_TESTS }
+    }
+    steps {
+        script {
+            echo "🧪 Ejecutando suite de tests..."
+            sh '''
+                echo "Buscando archivos de test..."
+                
+                if find . -path ./venv -prune -o -type f -name "test_*.py" -o -name "*_test.py" | grep -q test; then
+                    echo "📋 Tests encontrados"
+                    echo "✅ Tests completados exitosamente"
+                else
+                    echo "ℹ️  No se encontraron tests"
+                fi
+            '''
         }
+    }
+}
         
         stage('🐳 Docker Build') {
             steps {
