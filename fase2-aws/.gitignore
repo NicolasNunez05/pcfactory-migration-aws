@@ -1,0 +1,296 @@
+# =============================================================================
+# .gitignore para Proyecto PCFactory - Migración AWS con Terraform
+# =============================================================================
+# Este archivo protege información sensible y archivos temporales del proyecto
+# 
+# Proyecto: PCFactory Migration AWS - Capstone DuocUC 2025
+# Autor: Nicolás Núñez Álvarez
+# Email: nicolasnunezalvarez05@gmail.com
+# Última actualización: 29 de octubre de 2025
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# TERRAFORM - State y archivos de configuración sensibles
+# -----------------------------------------------------------------------------
+
+# State files (contienen información sensible de la infraestructura)
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+
+# Directory de provider y módulos descargados
+.terraform/
+.terraform.lock.hcl
+
+# Override files (sobrescriben configuración principal)
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Archivos de variables con valores sensibles
+*.tfvars
+*.tfvars.json
+terraform.tfvars
+terraform.tfvars.json
+secrets.tfvars
+
+# Plans guardados (pueden contener información sensible)
+*.tfplan
+tfplan*
+
+# Crash logs de Terraform
+crash.log
+crash.*.log
+
+# CLI config files
+.terraformrc
+terraform.rc
+
+# -----------------------------------------------------------------------------
+# AWS - Credenciales y configuración
+# -----------------------------------------------------------------------------
+
+# AWS CLI credentials
+.aws/
+credentials
+config
+
+# Access keys CSV descargados (CRÍTICO: proteger estas keys)
+*-KEYS.csv
+*_accessKeys.csv
+*credentials*.csv
+accessKeys.csv
+FDFDSFS-KEYS.csv
+
+# Archivos de sesión temporal
+.aws-session
+
+# -----------------------------------------------------------------------------
+# CERTIFICADOS - SSL/TLS para VPN
+# -----------------------------------------------------------------------------
+
+# Claves privadas (NUNCA subir al repositorio)
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Certificate Signing Requests
+*.csr
+
+# Serial files de certificados
+*.srl
+
+# Archivos OVPN con configuración completa
+*.ovpn
+
+# Excepciones: Permitir certificados públicos si es necesario
+# !certificates/server.crt
+# !certificates/client-ca.crt
+
+# -----------------------------------------------------------------------------
+# PYTHON - Scripts auxiliares y aplicación Flask
+# -----------------------------------------------------------------------------
+
+# Byte-compiled / optimized
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+
+# -----------------------------------------------------------------------------
+# DOCKER - Contenedores locales (Fase 1)
+# -----------------------------------------------------------------------------
+
+# Docker compose override
+docker-compose.override.yml
+
+# Environment variables para Docker
+.env
+.env.local
+.env.*.local
+
+# -----------------------------------------------------------------------------
+# IDEs y EDITORES
+# -----------------------------------------------------------------------------
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+.history/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# -----------------------------------------------------------------------------
+# SISTEMAS OPERATIVOS
+# -----------------------------------------------------------------------------
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# -----------------------------------------------------------------------------
+# LOGS y TEMPORALES
+# -----------------------------------------------------------------------------
+
+# Log files generales
+*.log
+logs/
+*.out
+
+# Temporary files
+*.tmp
+*.temp
+*.cache
+tmp/
+temp/
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# -----------------------------------------------------------------------------
+# DOCUMENTACIÓN - Archivos personales y borradores
+# -----------------------------------------------------------------------------
+
+# Borradores personales (no incluir en repo)
+NOTAS.txt
+PENDIENTE.md
+TODO-personal.md
+apuntes-personales.txt
+
+# Documentos de Word temporales
+~$*.doc*
+~$*.xls*
+~$*.ppt*
+
+# -----------------------------------------------------------------------------
+# ARCHIVOS DE PROYECTO ESPECÍFICOS
+# -----------------------------------------------------------------------------
+
+# Outputs de Terraform guardados localmente
+outputs.txt
+terraform-outputs.json
+
+# Screenshots y evidencias (si son muchas y pesadas)
+screenshots/
+evidencias/*.png
+capturas/
+
+# Archivos de configuración local específicos
+local.conf
+dev.local.conf
+
+# -----------------------------------------------------------------------------
+# SEGURIDAD - NUNCA INCLUIR (CRÍTICO)
+# -----------------------------------------------------------------------------
+
+# Archivos con contraseñas o tokens
+*password*
+*secret*
+*token*
+auth.json
+secrets.json
+
+# SSH keys
+id_rsa
+id_rsa.pub
+id_dsa
+id_dsa.pub
+id_ecdsa
+id_ecdsa.pub
+id_ed25519
+id_ed25519.pub
+
+# GPG keys
+*.gpg
+*.asc
+
+# -----------------------------------------------------------------------------
+# COMPILADOS y BUILDS
+# -----------------------------------------------------------------------------
+
+# Binaries
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Archives
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Except: permitir archivos necesarios para el proyecto
+# !lambda-function.zip
+
+# -----------------------------------------------------------------------------
+# NODE.JS - Si usas herramientas JS (ej: AWS CDK)
+# -----------------------------------------------------------------------------
+
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# -----------------------------------------------------------------------------
+# TESTING
+# -----------------------------------------------------------------------------
+
+# Test coverage reports
+coverage/
+*.coveragerc
+htmlcov/
+.pytest_cache/
+
+# -----------------------------------------------------------------------------
+# FIN DEL ARCHIVO
+# -----------------------------------------------------------------------------
+# Para más información sobre .gitignore: https://git-scm.com/docs/gitignore
+# Template oficial Terraform: https://github.com/github/gitignore/blob/main/Terraform.gitignore

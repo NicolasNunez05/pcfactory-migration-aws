@@ -1,0 +1,116 @@
+services:
+  dns:
+    image: andyshinn/dnsmasq:2.76
+    container_name: dns
+    networks:
+      vlan10_mgmt:
+        ipv4_address: 172.31.10.10
+    volumes:
+      - ./dns/dnsmasq.conf:/etc/dnsmasq.conf
+    cap_add:
+      - NET_ADMIN
+    restart: unless-stopped
+
+  ntp:
+    image: cturra/ntp
+    container_name: ntp
+    networks:
+      vlan10_mgmt:
+        ipv4_address: 172.31.10.13
+    restart: unless-stopped
+
+  ad:
+    image: alpine:latest
+    container_name: ad
+    hostname: dc1
+    networks:
+      vlan20_db:
+        ipv4_address: 172.31.20.10
+      vlan10_mgmt:
+        ipv4_address: 172.31.10.11
+    command: sleep infinity
+    restart: unless-stopped
+
+  db:
+    build: ./db
+    container_name: db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: pcfactory
+    networks:
+      vlan10_mgmt:
+        ipv4_address: 172.31.10.12
+      vlan20_db:
+        ipv4_address: 172.31.20.12
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    dns:
+      - 172.31.10.10
+    restart: unless-stopped
+
+  app:
+    build: ./app
+    container_name: app
+    environment:
+      DB_HOST: db.corp.local
+      DB_NAME: pcfactory
+      DB_USER: postgres
+      DB_PASSWORD: password
+    networks:
+      vlan10_mgmt:
+        ipv4_address: 172.31.10.14
+      vlan20_db:
+        ipv4_address: 172.31.20.14
+      vlan30_app:
+        ipv4_address: 172.31.30.14
+    dns:
+      - 172.31.10.10
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  web:
+    build: ./web
+    container_name: web
+    networks:
+      vlan10_mgmt:
+        ipv4_address: 172.31.10.15
+      vlan40_dmz:
+        ipv4_address: 172.31.40.15
+      vlan30_app:
+        ipv4_address: 172.31.30.15
+    ports:
+      - "8080:80"
+    dns:
+      - 172.31.10.10
+    depends_on:
+      - app
+    restart: unless-stopped
+
+networks:
+  vlan10_mgmt:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.31.10.0/24
+  vlan20_db:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.31.20.0/24
+  vlan30_app:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.31.30.0/24
+  vlan40_dmz:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.31.40.0/24
+
+volumes:
+  db_data:
+  samba_data:
+  samba_config:

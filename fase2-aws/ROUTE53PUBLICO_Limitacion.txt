@@ -1,0 +1,553 @@
+================================================================================
+DOCUMENTACIÓN: ROUTE 53 PÚBLICO - PCFACTORY MIGRATION
+================================================================================
+Fecha: 2025-11-02
+Versión: 1.0
+Proyecto: PCFactory Migration to AWS
+Autor: Infraestructura como Código - Terraform
+
+================================================================================
+TABLA DE CONTENIDOS
+================================================================================
+1. Introducción
+2. ¿Qué es Route 53 Público?
+3. Diferencias: Privado vs Público
+4. Arquitectura del Proyecto
+5. Requisitos Previos
+6. Estructura de Módulo DNS
+7. Archivos y Código
+8. Variables de Configuración
+9. Outputs Esperados
+10. Plan de Implementación
+11. Comandos Terraform
+12. Troubleshooting
+13. Monitoreo y Logs
+14. Costos Estimados
+15. Mejores Prácticas
+16. Referencias
+
+================================================================================
+1. INTRODUCCIÓN
+================================================================================
+
+Route 53 es el servicio de DNS administrado de AWS. Permite:
+- Registrar dominios
+- Alojar zonas DNS
+- Enrutar tráfico a través de políticas avanzadas
+- Health checks y failover automático
+
+En el proyecto PCFactory, usamos:
+  • Route 53 PRIVADA (corp.local): Para comunicación interna en la VPC
+  • Route 53 PÚBLICA (pcfactory.com): Para acceso desde Internet (COMENTADA)
+
+================================================================================
+2. ¿QUÉ ES ROUTE 53 PÚBLICO?
+================================================================================
+
+Route 53 Público es un servicio de DNS administrado que:
+  ✓ Resuelve nombres de dominio PÚBLICOS (accesibles desde Internet)
+  ✓ Traduce URL legibles en IPs numéricas
+  ✓ Distribuye tráfico usando políticas de enrutamiento
+  ✓ Realiza health checks automáticos
+  ✓ Proporciona failover automático
+
+Ejemplo de flujo:
+  1. Usuario escribe: https://app.pcfactory.com en navegador
+  2. Navegador pregunta a DNS: ¿Cuál es la IP de app.pcfactory.com?
+  3. Route 53 responde: 54.123.45.67 (IP del ALB)
+  4. Navegador se conecta a 54.123.45.67 (Application Load Balancer)
+  5. ALB distribuye tráfico a instancias EC2
+  6. Usuario ve aplicación Flask
+
+================================================================================
+3. DIFERENCIAS: ROUTE 53 PRIVADA VS PÚBLICA
+================================================================================
+
+┌─────────────────────┬────────────────────────┬────────────────────────┐
+│    CARACTERÍSTICA   │   ROUTE 53 PRIVADA     │   ROUTE 53 PÚBLICA     │
+├─────────────────────┼────────────────────────┼────────────────────────┤
+│ Dominio             │ corp.local             │ pcfactory.com          │
+│ Accesibilidad       │ Solo VPC               │ Internet completo      │
+│ Uso                 │ BD, cachés, servicios  │ Aplicación web         │
+│ Registros típicos   │ db.corp.local          │ app.pcfactory.com      │
+│ Originante          │ AWS                    │ Usuario o empresa      │
+│ Propagación         │ Inmediata (VPC)        │ 24-48 horas (Internet) │
+│ Costo               │ Gratis                 │ $0.50/mes + queries    │
+│ Security            │ Aislada de Internet    │ Expuesta a Internet    │
+└─────────────────────┴────────────────────────┴────────────────────────┘
+
+DIAGRAMA ACTUAL:
+================================================================================
+
+Internet
+    │
+    ├─→ Route 53 Público (COMENTADO - NO ACTIVO)
+    │       ├─ app.pcfactory.com → ALB DNS
+    │       ├─ www.pcfactory.com → ALB DNS
+    │       └─ api.pcfactory.com → ALB DNS
+    │
+VPC: 10.20.0.0/16
+    │
+    ├─→ Application Load Balancer (Public Subnet)
+    │       │
+    │       └─→ Security Group: alb_sg (puerto 80, 443)
+    │
+    ├─→ EC2 Instancias (Private App Subnet)
+    │       │
+    │       ├─→ Route 53 Privado (corp.local)
+    │       │       └─ db.corp.local → RDS Endpoint
+    │       │
+    │       └─→ Security Group: app_sg (puerto 8080 desde ALB)
+    │               │
+    │               └─→ RDS PostgreSQL (Private DB Subnet)
+    │                       └─→ Security Group: db_sg (5432)
+
+================================================================================
+4. ARQUITECTURA DEL PROYECTO
+================================================================================
+
+Flujo de Tráfico de Usuarios (cuando Route 53 público esté activo):
+
+Usuario externo (Internet)
+    │
+    ├─[1]─→ ¿Cuál es IP de app.pcfactory.com?
+    │
+    ├─[2]─→ Route 53 Público responde: 54.123.45.67 (ALB IP)
+    │
+    ├─[3]─→ Navega a http://54.123.45.67
+    │
+    └─[4]─→ Conecta a Application Load Balancer
+                │
+                ├─ Health Check: ¿Están activas las instancias?
+                │
+                └─ Forward request a EC2 instancia en puerto 8080
+                        │
+                        └─ Flask responde con página web
+                                │
+                                └─ EC2 conecta internamente a RDS (db.corp.local)
+                                        │
+                                        └─ RDS responde con datos
+
+================================================================================
+5. REQUISITOS PREVIOS PARA ACTIVAR ROUTE 53 PÚBLICO
+================================================================================
+
+ANTES de activar Route 53 público, necesitas:
+
+✓ PASO 1: ALB DESPLEGADO Y FUNCIONANDO
+  - El ALB debe estar creado
+  - Debe estar respondiendo en puerto 80 y 443
+  - Debe tener health checks funcionando
+  - Debe estar accesible desde Internet
+
+✓ PASO 2: OBTENER OUTPUTS DEL ALB
+  - alb_dns_name: Algo como "pcfactory-alb-123456789.us-east-1.elb.amazonaws.com"
+  - alb_zone_id: Algo como "Z35SXDOTRQ7X7K"
+
+✓ PASO 3: COMPRAR DOMINIO REAL
+  - Opción A: Registrar en Route 53 ($12-15/año)
+  - Opción B: Comprar en registrador externo (GoDaddy, NameCheap, etc.)
+
+✓ PASO 4: CONFIGURAR NAME SERVERS (si compraste en registrador externo)
+  - Route 53 genera 4 name servers
+  - Copiarlos al registrador de dominio
+  - Esperar 24-48 horas propagación
+
+================================================================================
+6. ESTRUCTURA DEL MÓDULO DNS
+================================================================================
+
+modules/dns/
+├── main.tf              (Recursos Route 53 - TODO COMENTADO)
+├── variables.tf         (Variables - TODO COMENTADO)
+├── outputs.tf           (Outputs - TODO COMENTADO)
+└── public.tf            (Alternativa - Código separado)
+
+ARCHIVOS INCLUIDOS EN PROYECTO:
+  ✓ modules/dns/main.tf (creado en Fase 2)
+  ✓ modules/dns/variables.tf (creado en Fase 2)
+  ✓ modules/dns/outputs.tf (creado en Fase 2)
+  ✓ environments/dev/main.tf (actualizado - módulo dns comentado)
+
+================================================================================
+7. ARCHIVOS Y CÓDIGO
+================================================================================
+
+ARCHIVO 1: modules/dns/main.tf
+═════════════════════════════════════════════════════════════════════════════
+Contiene:
+  • Hosted Zone Pública (comentada)
+  • Registros DNS:
+    - A (ALIAS): app.pcfactory.com → ALB
+    - A (APEX): pcfactory.com → ALB
+    - CNAME: www.pcfactory.com → app.pcfactory.com
+    - A: api.pcfactory.com → ALB (opcional)
+  • Health checks (opcional)
+  • TXT records (para verificación)
+
+Tamaño: ~150 líneas (con comentarios de explicación)
+
+ARCHIVO 2: modules/dns/variables.tf
+═════════════════════════════════════════════════════════════════════════════
+Variables (todas comentadas hasta activación):
+  • project_name: Nombre del proyecto
+  • environment: Ambiente (dev, staging, prod)
+  • domain: Dominio a registrar (pcfactory.com)
+  • alb_dns_name: DNS del ALB (viene de módulo load-balancer)
+  • alb_zone_id: Zone ID del ALB
+  • enable_health_check: Booleano para health checks
+  • health_check_path: Ruta de health check
+  • ttl_short: TTL para cambios frecuentes (300s)
+  • ttl_long: TTL para registros estables (3600s)
+
+ARCHIVO 3: modules/dns/outputs.tf
+═════════════════════════════════════════════════════════════════════════════
+Outputs (todas comentadas hasta activación):
+  • zone_id: ID de la hosted zone
+  • zone_name_servers: Name servers para configurar en registrador
+  • app_fqdn: FQDN completo (app.pcfactory.com)
+  • apex_fqdn: FQDN raíz (pcfactory.com)
+  • www_fqdn: FQDN www (www.pcfactory.com)
+  • api_fqdn: FQDN API (api.pcfactory.com)
+
+================================================================================
+8. VARIABLES DE CONFIGURACIÓN
+================================================================================
+
+En environments/dev/main.tf, cuando actives DNS público:
+
+module "dns" {
+  source       = "../../modules/dns"
+  project_name = var.project_name              # "pcfactory-migration"
+  environment  = "production"
+
+  domain       = "pcfactory.com"               # CAMBIAR POR TU DOMINIO
+
+  alb_dns_name = module.load_balancer.alb_dns_name
+  alb_zone_id  = module.load_balancer.alb_zone_id
+
+  enable_health_check = false                  # true = $0.50/mes
+  health_check_path   = "/health"
+  ttl_short           = 300                    # 5 minutos
+  ttl_long            = 3600                   # 1 hora
+}
+
+================================================================================
+9. OUTPUTS ESPERADOS
+================================================================================
+
+Después de terraform apply, ejecuta:
+
+$ terraform output dns_zone_id
+Respuesta: Z1234567890ABC (ID único de la zona)
+
+$ terraform output dns_name_servers
+Respuesta:
+[
+  "ns-1234.awsdns-12.org",
+  "ns-5678.awsdns-34.com",
+  "ns-9012.awsdns-56.net",
+  "ns-3456.awsdns-78.co.uk"
+]
+
+$ terraform output app_fqdn
+Respuesta: app.pcfactory.com
+
+$ terraform output app_url
+Respuesta: https://app.pcfactory.com
+
+================================================================================
+10. PLAN DE IMPLEMENTACIÓN (PASO A PASO)
+================================================================================
+
+FASE 1: PREPARACIÓN (SIN CAMBIOS EN CÓDIGO)
+────────────────────────────────────────────────────────────────────────────
+Semana 1-2:
+  [ ] Decidir dominio a registrar (pcfactory.com, otro)
+  [ ] Investigar opciones: Route 53 vs GoDaddy vs NameCheap
+  [ ] Obtener presupuesto ($12-15/año para dominio)
+  [ ] Documentar decisión en proyecto
+
+FASE 2: DESCOMENTAR CÓDIGO
+────────────────────────────────────────────────────────────────────────────
+Día 1:
+  [ ] Descomentar module "dns" en environments/dev/main.tf
+  [ ] Descomentar variables en modules/dns/variables.tf
+  [ ] Descomentar outputs en modules/dns/outputs.tf
+  [ ] Descomentar contenido de modules/dns/main.tf
+  [ ] Cambiar variable domain = "pcfactory.com" por tu dominio
+
+FASE 3: VALIDACIÓN
+────────────────────────────────────────────────────────────────────────────
+Día 1 (continuación):
+  [ ] cd environments/dev
+  [ ] terraform validate (validar sintaxis)
+  [ ] terraform fmt -recursive (formatear)
+  [ ] terraform plan -out=dns.tfplan (ver cambios)
+  [ ] REVISAR QUÉ VA A CREAR (no destruir)
+
+FASE 4: CREACIÓN DE ZONA DNS
+────────────────────────────────────────────────────────────────────────────
+Día 1 (final):
+  [ ] terraform apply dns.tfplan
+  [ ] Esperar 2-3 minutos creación de zona
+  [ ] terraform output dns_name_servers (COPIAR ESTOS VALORES)
+
+FASE 5: CONFIGURACIÓN DE REGISTRADOR
+────────────────────────────────────────────────────────────────────────────
+Día 2:
+  Si compraste en Route 53:
+    [ ] La zona ya apunta automáticamente (no hacer nada)
+
+  Si compraste en GoDaddy/NameCheap:
+    [ ] Ir a GoDaddy.com (o tu registrador)
+    [ ] Login a tu cuenta
+    [ ] Buscar tu dominio (pcfactory.com)
+    [ ] Ir a "DNS Settings" o "Name Servers"
+    [ ] Reemplazar Name Servers actuales con los 4 de Route 53:
+        ns-1234.awsdns-12.org
+        ns-5678.awsdns-34.com
+        ns-9012.awsdns-56.net
+        ns-3456.awsdns-78.co.uk
+    [ ] Guardar cambios
+    [ ] ESPERAR 24-48 horas propagación
+
+FASE 6: VALIDACIÓN DE PROPAGACIÓN
+────────────────────────────────────────────────────────────────────────────
+Día 3 (después de propagación):
+  [ ] nslookup app.pcfactory.com (desde terminal)
+  [ ] dig app.pcfactory.com (verificar definitivos)
+  [ ] ping app.pcfactory.com (¿responde IP del ALB?)
+  [ ] curl http://app.pcfactory.com (¿responde HTML?)
+  [ ] curl https://app.pcfactory.com (¿responde con SSL?)
+
+================================================================================
+11. COMANDOS TERRAFORM
+================================================================================
+
+COMANDO 1: Validar sintaxis (sin cambios)
+────────────────────────────────────────────────────────────────────────────
+$ cd environments/dev
+$ terraform validate
+
+Respuesta esperada:
+  Success! The configuration is valid.
+
+COMANDO 2: Ver cambios (DRY RUN)
+────────────────────────────────────────────────────────────────────────────
+$ terraform plan -out=dns.tfplan
+
+Buscar en output:
+  + aws_route53_zone.public
+  + aws_route53_record.app
+  + aws_route53_record.www
+  + aws_route53_record.api
+  + aws_route53_record.apex
+
+NO debe haber: "destroy" (si aparece, revisar plan)
+
+COMANDO 3: Aplicar cambios
+────────────────────────────────────────────────────────────────────────────
+$ terraform apply dns.tfplan
+
+Esperar hasta:
+  Apply complete! Resources added: 4
+
+COMANDO 4: Ver outputs
+────────────────────────────────────────────────────────────────────────────
+$ terraform output
+
+Verá todos los outputs disponibles
+
+COMANDO 5: Ver output específico
+────────────────────────────────────────────────────────────────────────────
+$ terraform output dns_name_servers
+
+Respuesta:
+  [
+    "ns-1234.awsdns-12.org",
+    ...
+  ]
+
+COMANDO 6: Eliminar DNS (rollback)
+────────────────────────────────────────────────────────────────────────────
+$ terraform destroy -target=module.dns
+
+ CUIDADO: Elimina la zona DNS (usuarios no podrán acceder)
+
+================================================================================
+12. TROUBLESHOOTING
+================================================================================
+
+PROBLEMA 1: "Error: reading hosted zone"
+────────────────────────────────────────────────────────────────────────────
+Síntoma: terraform plan falla con "could not find hosted zone"
+Causa: Zone ID incorrecto o zona no creada
+Solución:
+  1. Verificar: terraform output dns_zone_id
+  2. Verificar en AWS Console → Route 53 → Hosted Zones
+  3. Si no aparece, ejecutar: terraform apply nuevamente
+
+PROBLEMA 2: "nslookup: command not found"
+────────────────────────────────────────────────────────────────────────────
+Síntoma: No puedes ejecutar nslookup para verificar DNS
+Causa: nslookup no instalado en tu máquina local
+Solución (Linux/Mac):
+  $ sudo apt-get install dnsutils  (Ubuntu/Debian)
+  $ brew install bind-tools        (macOS)
+Alternativa:
+  $ dig app.pcfactory.com (dig es alternativa)
+
+PROBLEMA 3: "NXDOMAIN - Non-Existent Domain"
+────────────────────────────────────────────────────────────────────────────
+Síntoma: nslookup retorna "Non-existent domain"
+Causa: DNS propagación aún en progreso (24-48h)
+Solución:
+  1. Esperar 24-48 horas
+  2. Verificar que Name Servers estén configurados en registrador
+  3. Usar herramienta online: https://dns.google.com/
+  4. Consultar estado propagación: https://whatsmydns.net/
+
+PROBLEMA 4: "Connection refused" en curl
+────────────────────────────────────────────────────────────────────────────
+Síntoma: curl app.pcfactory.com retorna "Connection refused"
+Causa: DNS resolvió IP correcta pero ALB/instancias no responden
+Solución:
+  1. Verificar ALB está en estado "Active":
+     aws elbv2 describe-load-balancers --query 'LoadBalancers[0].State'
+  2. Verificar security groups permiten puerto 80/443
+  3. Verificar instancias están "running" y "healthy"
+  4. Ver logs ALB en CloudWatch
+
+PROBLEMA 5: "SERVFAIL" error en nslookup
+────────────────────────────────────────────────────────────────────────────
+Síntoma: nslookup retorna "SERVFAIL"
+Causa: Problemas con Zone Transfer o configuración Name Servers
+Solución:
+  1. Verificar outputs de zona: terraform output dns_name_servers
+  2. Verificar Name Servers en registrador (si es externo)
+  3. Ejecutar: dig @ns-1234.awsdns-12.org app.pcfactory.com
+  4. Contactar soporte AWS si persiste
+
+================================================================================
+13. MONITOREO Y LOGS
+================================================================================
+
+MONITOREO EN AWS CONSOLE
+────────────────────────────────────────────────────────────────────────────
+1. Ir a: Route 53 → Hosted Zones → pcfactory.com
+2. Ver:
+   • State: Active
+   • Record Count: 4+ (A, CNAME, SOA, NS)
+   • Query logging: (activar si deseas logs detallados)
+
+QUERY LOGGING (Costo: $0.50/mes + queries)
+────────────────────────────────────────────────────────────────────────────
+Ver quién consulta tu DNS:
+
+$ aws route53 create-query-logging-config   --hosted-zone-id Z1234567890ABC   --cloud-watch-logs-log-group-arn arn:aws:logs:us-east-1:123456789012:log-group:/aws/route53/pcfactory
+
+Luego ver en CloudWatch Logs:
+  /aws/route53/pcfactory
+
+MÉTRICAS CLOUDWATCH
+────────────────────────────────────────────────────────────────────────────
+Route 53 no tiene métricas de queries por defecto en CloudWatch.
+Para monitorear:
+  1. Activar Query Logging (arriba)
+  2. Ver logs en CloudWatch
+  3. O usar AWS-managed Insights en Route 53
+
+SALUD DE REGISTROS
+────────────────────────────────────────────────────────────────────────────
+$ aws route53 list-health-checks   --query 'HealthChecks[0].{Id:Id,Status:HealthCheckConfig.Type}'
+
+Verifica que health checks retornen status "Healthy"
+
+================================================================================
+14. COSTOS ESTIMADOS
+================================================================================
+
+COSTO DESAGREGADO
+────────────────────────────────────────────────────────────────────────────
+Hosted Zone Pública:           $0.50/mes
+Queries DNS:
+  - Primeros 1,000,000,000/mes: $0.40 por millón (gratis primeros 3.6M)
+  - Queries adicionales:        $0.20 por millón
+
+Health Checks:
+  - Básico (1 por región):      $0.50/mes
+  - Avanzado con SNI:           $1.00/mes
+
+Query Logging:
+  - Almacenamiento logs:        $0.50/mes + CloudWatch charges
+
+Dominio (si registras en Route 53):
+  .com:                         $12/año
+  .net, .org:                   $11/año
+  .info:                         $4/año
+
+COSTO TOTAL MENSUAL
+────────────────────────────────────────────────────────────────────────────
+Escenario básico (sin muchas queries):
+  Hosted Zone + Domain: $0.50/mes + $1/mes (dominio amortizado)
+  = ~$1.50/mes
+
+Escenario con health checks + logging:
+  Hosted Zone + Health Check + Query Logging: $1.50/mes
+  = ~$1.50/mes
+
+Escenario con muchas queries (10M/día = 300M/mes):
+  Hosted Zone + Extra Queries + Health Check: $0.50 + $0.12 + $0.50
+  = ~$1.12/mes
+
+CONCLUSIÓN: Route 53 público es MUY ECONÓMICO (~$1-2/mes)
+
+================================================================================
+15. MEJORES PRÁCTICAS
+================================================================================
+
+PRÁCTICA 1: TTL Values
+────────────────────────────────────────────────────────────────────────────
+✓ TTL bajo (300s) durante cambios/testing
+✓ TTL alto (3600s) en producción estable
+✓ TTL más bajo = más queries DNS (↑ costo)
+✓ TTL más alto = cambios tardan más en propagarse
+
+PRÁCTICA 2: Health Checks
+────────────────────────────────────────────────────────────────────────────
+✓ Siempre usar health checks en registros críticos
+✓ Failover automático si ALB falla
+✓ Monitorear health check status
+✓ Establecer múltiples health checks por zona
+
+PRÁCTICA 3: Disaster Recovery
+────────────────────────────────────────────────────────────────────────────
+✓ Mantener backup de zona DNS exportada
+✓ Documentar registros DNS importantes
+✓ Probar cambios en ambientes de testing
+✓ Usar weighted routing para canary deployments
+
+PRÁCTICA 4: Seguridad
+────────────────────────────────────────────────────────────────────────────
+✓ Usar DNSSEC (DNS Security Extensions)
+✓ Activar MFA para cambios en Route 53
+✓ Usar IAM roles restrictivos para Route 53
+✓ Auditar cambios con CloudTrail
+
+PRÁCTICA 5: Nomenclatura
+────────────────────────────────────────────────────────────────────────────
+✓ app.pcfactory.com     → aplicación principal
+✓ www.pcfactory.com     → alias de app
+✓ api.pcfactory.com     → API backend
+✓ admin.pcfactory.com   → panel administrativo
+✓ staging.pcfactory.com → ambiente testing
+✓ dev.pcfactory.com     → ambiente desarrollo
+
+PRÁCTICA 6: Testing DNS
+────────────────────────────────────────────────────────────────────────────
+✓ nslookup app.pcfactory.com (resolución básica)
+✓ dig app.pcfactory.com (información detallada)
+✓ dig +trace app.pcfactory.com (rastrear propagación)
+✓ dig @8.8.8.8 app.pcfactory.com (usar DNS específico)
+✓ host app.pcfactory.com (información rápida)
