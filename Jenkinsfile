@@ -77,7 +77,7 @@ pipeline {
                     echo "Build ID: ${BUILD_ID}"
                     echo "Build Tag: ${BUILD_TAG}"
                     echo "Build Timestamp: ${BUILD_TIMESTAMP}"
-                    echo "Usuario: ${BUILD_USER_ID ?: 'Sistema'}"
+                    echo "Usuario: Sistema"
                     echo "Branch: ${GITHUB_BRANCH}"
                     echo "Workspace: ${WORKSPACE}"
                     echo "════════════════════════════════════════════"
