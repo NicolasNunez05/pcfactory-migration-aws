@@ -86,28 +86,21 @@ pipeline {
         }
         
         stage('🔄 Checkout') {
-            steps {
-                script {
-                    echo "🔄 Clonando repositorio desde GitHub..."
-                    checkout([
-                        $class: 'GitSCM',
-                        branches: [[name: '*/${GITHUB_BRANCH}']],
-                        userRemoteConfigs: [[url: '${GITHUB_REPO}.git']]
-                    ])
-                    
-                    // Obtener información del commit
-                    sh '''
-                        echo "✅ Repositorio clonado exitosamente"
-                        echo ""
-                        echo "📌 Información del Commit:"
-                        echo "Commit Hash: $(git rev-parse --short HEAD)"
-                        echo "Autor: $(git log -1 --pretty=format:'%an')"
-                        echo "Mensaje: $(git log -1 --pretty=format:'%s')"
-                        echo "Fecha: $(git log -1 --pretty=format:'%ad')"
-                    '''
-                }
-            }
+    steps {
+        script {
+            echo "🔄 Clonando repositorio desde GitHub..."
+            sh '''
+                echo "✅ Repositorio ya clonado por SCM"
+                echo ""
+                echo "📌 Información del Commit:"
+                echo "Commit Hash: $(git rev-parse --short HEAD)"
+                echo "Autor: $(git log -1 --pretty=format:'%an')"
+                echo "Mensaje: $(git log -1 --pretty=format:'%s')"
+                echo "Fecha: $(git log -1 --pretty=format:'%ad')"
+            '''
         }
+    }
+}
         
         stage('🔍 Validación de Estructura') {
             steps {
