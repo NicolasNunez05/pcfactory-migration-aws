@@ -16,11 +16,11 @@ pipeline {
         stage('Checkout') {
             steps {
                 echo "🔄 Cloning repository..."
-                git branch: 'main',
-                    url: 'https://github.com/NicolasNunez05/pcfactory-migration.git',
-                    credentialsId: 'github-credentials'
-                echo "✅ Repository cloned successfully"
-            }
+                checkout([
+    $class: 'GitSCM',
+    branches: [[name: '*/main']],
+    userRemoteConfigs: [[url: 'https://github.com/NicolasNunez05/pcfactory-migration.git']]
+])
         }
         
         stage('Build') {
