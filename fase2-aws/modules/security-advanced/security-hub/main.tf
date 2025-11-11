@@ -24,19 +24,24 @@ resource "aws_securityhub_account" "main" {
 
 # AWS Foundational Security Best Practices
 resource "aws_securityhub_standards_subscription" "aws_foundational" {
-  count = var.enable_aws_foundational_security ? 1 : 0
+  count           = var.enable_aws_foundational_security ? 1 : 0
+  standards_arn   = "arn:aws:securityhub:${data.aws_region.current.name}::standards/aws-foundational-security-best-practices/v/1.0.0"
+  depends_on      = [aws_securityhub_account.main]
 
-  depends_on    = [aws_securityhub_account.main]
-  standards_arn = "arn:aws:securityhub:${data.aws_region.current.name}::standards/aws-foundational-security-best-practices/v/1.0.0"
+  timeouts {
+    create = "10m"  # ← AGREGAR ESTO
+  }
 }
 
 # CIS AWS Foundations Benchmark v1.4
 resource "aws_securityhub_standards_subscription" "cis_aws_v1_4" {
-  count = var.enable_cis_aws_v1_4 ? 1 : 0
-  
-  standards_arn = "arn:aws:securityhub:${data.aws_region.current.name}::standards/cis-aws-foundations-benchmark/v/1.4.0"
-  
-  depends_on = [aws_securityhub_account.main]
+  count           = var.enable_cis_aws_foundations_v1_4 ? 1 : 0
+  standards_arn   = "arn:aws:securityhub:${data.aws_region.current.name}::standards/cis-aws-foundations-benchmark/v/1.4.0"
+  depends_on      = [aws_securityhub_account.main]
+
+  timeouts {
+    create = "10m"  # ← AGREGAR ESTO
+  }
 }
 
 # PCI DSS v3.2.1

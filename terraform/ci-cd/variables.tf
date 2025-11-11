@@ -2,10 +2,7 @@ variable "aws_region" {
   default = "us-east-1"
 }
 
-variable "vpc_id" {
-  description = "VPC ID de Fase 2"
-  type        = string
-}
+
 
 variable "jenkins_public_key" {
   description = "SSH public key para Jenkins"
@@ -19,4 +16,9 @@ variable "app_name" {
 
 variable "environment" {
   default = "production"
+}
+
+variable "vpc_id" {
+  description = "VPC ID"
+  type        = string
 }

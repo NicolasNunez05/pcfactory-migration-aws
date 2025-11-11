@@ -4,6 +4,18 @@
 # AWS Region: us-east-1
 # =============================================================================
 
+# ============================================
+# DATA SOURCE: Buscar VPC dinámicamente
+# ============================================
+resource "aws_vpc" "main" {
+  cidr_block           = var.vpc_cidr
+  enable_dns_hostnames = true
+  enable_dns_support   = true
+
+  tags = {
+    Name = "${var.project_name}-vpc"
+  }
+}
 # ==========================================
 # NETWORKING MODULE
 # ==========================================
@@ -127,8 +139,6 @@ module "kms" {
     Owner = "team-security"
   }
 }
-
-
 
 module "waf" {
   source       = "../../modules/waf"
@@ -346,13 +356,7 @@ module "ssm_patch_manager" {
   environment         = "dev"
   instance_ids        = []                    # Vacío porque usamos ASG
   schedule_expression = "cron(0 2 ? * SUN *)" # Domingos 2 AM
-
-
 }
-
-# =============================================================================
-# SECRETS MANAGER CON ROTACIÓN
-# =============================================================================
 
 # =============================================================================
 # SECRETS MANAGER CON ROTACIÓN
@@ -429,7 +433,6 @@ module "configrules" {
   s3_bucket_name = module.s3storage.logs_bucket_name  # Asegúrate de exportar este output en módulo S3
   # otras variables que uses
 }
-
 
 module "elasticache_redis" {
   source = "../../modules/cache/elasticache-redis"
@@ -777,10 +780,6 @@ module "ssm_automation" {
   depends_on = [module.sns]
 }
 
-
-
-
-
 # ========================================
 # LOAD BALANCER MODULE
 # ========================================
@@ -848,10 +847,7 @@ module "ssm_automation" {
 # ========================================
 # OUTPUTS - NETWORKING
 # ========================================
-output "vpc_id" {
-  description = "ID de la VPC"
-  value       = module.networking.vpc_id
-}
+
 
 output "public_subnet_ids" {
   description = "IDs de las subredes públicas"
@@ -1253,7 +1249,6 @@ output "global_budget_name" {
   value       = module.aws_budgets.global_budget_name
 }
 
-
 # ========================================
 # OUTPUTS - LOAD BALANCER (COMENTADO)
 # ========================================
@@ -1382,3 +1377,9 @@ output "global_budget_name" {
 #    $ curl https://app.pcfactory.com
 #
 # =============================================================================
+
+resource "aws_s3_bucket" "logs" {
+  bucket        = "pcfactory-migration-logs-dev"
+  force_destroy = true  # <-- Agregar esta línea
+  # ... resto de tu config
+}

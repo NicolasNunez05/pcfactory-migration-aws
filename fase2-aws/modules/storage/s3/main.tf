@@ -1,4 +1,4 @@
-# =============================================================================
+﻿# =============================================================================
 # MÓDULO S3 STORAGE - CONFIGURACIÓN PROFESIONAL
 # =============================================================================
 # Buckets S3 con versionado, lifecycle policies, cifrado KMS y logging
@@ -16,8 +16,7 @@ data "aws_region" "current" {}
 # =============================================================================
 
 resource "aws_s3_bucket" "backups" {
-  count = var.enable_backups_bucket ? 1 : 0
-
+  count  = var.enable_backups_bucket ? 1 : 0
   bucket = "${var.project_name}-backups-${var.environment}"
 
   tags = merge(
@@ -34,8 +33,7 @@ resource "aws_s3_bucket" "backups" {
 
 # Versionado habilitado para backups
 resource "aws_s3_bucket_versioning" "backups" {
-  count = var.enable_backups_bucket ? 1 : 0
-
+  count  = var.enable_backups_bucket ? 1 : 0
   bucket = aws_s3_bucket.backups[0].id
 
   versioning_configuration {
@@ -46,8 +44,7 @@ resource "aws_s3_bucket_versioning" "backups" {
 
 # Cifrado con KMS para backups
 resource "aws_s3_bucket_server_side_encryption_configuration" "backups" {
-  count = var.enable_backups_bucket ? 1 : 0
-
+  count  = var.enable_backups_bucket ? 1 : 0
   bucket = aws_s3_bucket.backups[0].id
 
   rule {
@@ -61,8 +58,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "backups" {
 
 # Block Public Access para backups
 resource "aws_s3_bucket_public_access_block" "backups" {
-  count = var.enable_backups_bucket ? 1 : 0
-
+  count  = var.enable_backups_bucket ? 1 : 0
   bucket = aws_s3_bucket.backups[0].id
 
   block_public_acls       = true
@@ -73,8 +69,7 @@ resource "aws_s3_bucket_public_access_block" "backups" {
 
 # Lifecycle Policy para backups
 resource "aws_s3_bucket_lifecycle_configuration" "backups" {
-  count = var.enable_backups_bucket ? 1 : 0
-
+  count  = var.enable_backups_bucket ? 1 : 0
   bucket = aws_s3_bucket.backups[0].id
 
   rule {
@@ -128,12 +123,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "backups" {
 
 # Logging de acceso para backups
 resource "aws_s3_bucket_logging" "backups" {
-  count = var.enable_backups_bucket && var.enable_access_logging && var.enable_logs_bucket ? 1 : 0
-
-  bucket = aws_s3_bucket.backups[0].id
-
-  target_bucket = aws_s3_bucket.logs[0].id
-  target_prefix = "s3-access-logs/backups/"
+  count           = var.enable_backups_bucket && var.enable_access_logging && var.enable_logs_bucket ? 1 : 0
+  bucket          = aws_s3_bucket.backups[0].id
+  target_bucket   = aws_s3_bucket.logs[0].id
+  target_prefix   = "s3-access-logs/backups/"
 }
 
 # =============================================================================
@@ -141,8 +134,7 @@ resource "aws_s3_bucket_logging" "backups" {
 # =============================================================================
 
 resource "aws_s3_bucket" "logs" {
-  count = var.enable_logs_bucket ? 1 : 0
-
+  count  = var.enable_logs_bucket ? 1 : 0
   bucket = "${var.project_name}-logs-${var.environment}"
 
   tags = merge(
@@ -159,8 +151,7 @@ resource "aws_s3_bucket" "logs" {
 
 # Sin versionado para logs (no necesario)
 resource "aws_s3_bucket_versioning" "logs" {
-  count = var.enable_logs_bucket ? 1 : 0
-
+  count  = var.enable_logs_bucket ? 1 : 0
   bucket = aws_s3_bucket.logs[0].id
 
   versioning_configuration {
@@ -170,8 +161,7 @@ resource "aws_s3_bucket_versioning" "logs" {
 
 # Cifrado con KMS para logs
 resource "aws_s3_bucket_server_side_encryption_configuration" "logs" {
-  count = var.enable_logs_bucket ? 1 : 0
-
+  count  = var.enable_logs_bucket ? 1 : 0
   bucket = aws_s3_bucket.logs[0].id
 
   rule {
@@ -185,8 +175,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "logs" {
 
 # Block Public Access para logs
 resource "aws_s3_bucket_public_access_block" "logs" {
-  count = var.enable_logs_bucket ? 1 : 0
-
+  count  = var.enable_logs_bucket ? 1 : 0
   bucket = aws_s3_bucket.logs[0].id
 
   block_public_acls       = true
@@ -197,8 +186,7 @@ resource "aws_s3_bucket_public_access_block" "logs" {
 
 # Lifecycle Policy para logs
 resource "aws_s3_bucket_lifecycle_configuration" "logs" {
-  count = var.enable_logs_bucket ? 1 : 0
-
+  count  = var.enable_logs_bucket ? 1 : 0
   bucket = aws_s3_bucket.logs[0].id
 
   rule {
@@ -225,8 +213,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "logs" {
 
 # Política del bucket para permitir S3 Access Logs
 resource "aws_s3_bucket_policy" "logs" {
-  count = var.enable_logs_bucket ? 1 : 0
-
+  count  = var.enable_logs_bucket ? 1 : 0
   bucket = aws_s3_bucket.logs[0].id
 
   policy = jsonencode({
@@ -257,8 +244,7 @@ resource "aws_s3_bucket_policy" "logs" {
 # =============================================================================
 
 resource "aws_s3_bucket" "artifacts" {
-  count = var.enable_artifacts_bucket ? 1 : 0
-
+  count  = var.enable_artifacts_bucket ? 1 : 0
   bucket = "${var.project_name}-artifacts-${var.environment}"
 
   tags = merge(
@@ -275,8 +261,7 @@ resource "aws_s3_bucket" "artifacts" {
 
 # Versionado habilitado para artifacts
 resource "aws_s3_bucket_versioning" "artifacts" {
-  count = var.enable_artifacts_bucket ? 1 : 0
-
+  count  = var.enable_artifacts_bucket ? 1 : 0
   bucket = aws_s3_bucket.artifacts[0].id
 
   versioning_configuration {
@@ -286,8 +271,7 @@ resource "aws_s3_bucket_versioning" "artifacts" {
 
 # Cifrado con KMS para artifacts
 resource "aws_s3_bucket_server_side_encryption_configuration" "artifacts" {
-  count = var.enable_artifacts_bucket ? 1 : 0
-
+  count  = var.enable_artifacts_bucket ? 1 : 0
   bucket = aws_s3_bucket.artifacts[0].id
 
   rule {
@@ -301,8 +285,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "artifacts" {
 
 # Block Public Access para artifacts
 resource "aws_s3_bucket_public_access_block" "artifacts" {
-  count = var.enable_artifacts_bucket ? 1 : 0
-
+  count  = var.enable_artifacts_bucket ? 1 : 0
   bucket = aws_s3_bucket.artifacts[0].id
 
   block_public_acls       = true
@@ -313,8 +296,7 @@ resource "aws_s3_bucket_public_access_block" "artifacts" {
 
 # Lifecycle Policy para artifacts
 resource "aws_s3_bucket_lifecycle_configuration" "artifacts" {
-  count = var.enable_artifacts_bucket ? 1 : 0
-
+  count  = var.enable_artifacts_bucket ? 1 : 0
   bucket = aws_s3_bucket.artifacts[0].id
 
   rule {
@@ -362,25 +344,23 @@ resource "aws_s3_bucket_lifecycle_configuration" "artifacts" {
   }
 }
 
-
 # Logging de acceso para artifacts
 resource "aws_s3_bucket_logging" "artifacts" {
-  count = var.enable_artifacts_bucket && var.enable_access_logging && var.enable_logs_bucket ? 1 : 0
-
-  bucket = aws_s3_bucket.artifacts[0].id
-
-  target_bucket = aws_s3_bucket.logs[0].id
-  target_prefix = "s3-access-logs/artifacts/"
+  count           = var.enable_artifacts_bucket && var.enable_access_logging && var.enable_logs_bucket ? 1 : 0
+  bucket          = aws_s3_bucket.artifacts[0].id
+  target_bucket   = aws_s3_bucket.logs[0].id
+  target_prefix   = "s3-access-logs/artifacts/"
 }
 
 resource "aws_s3_bucket_policy" "config_logs" {
+  count  = var.enable_logs_bucket ? 1 : 0
   bucket = aws_s3_bucket.logs[0].id
 
   policy = jsonencode({
     Version = "2012-10-17",
     Statement = [
       {
-        Sid = "AWSConfigBucketPermissionsCheck",
+        Sid    = "AWSConfigBucketPermissionsCheck",
         Effect = "Allow",
         Principal = {
           Service = "config.amazonaws.com"
@@ -392,12 +372,12 @@ resource "aws_s3_bucket_policy" "config_logs" {
         Resource = aws_s3_bucket.logs[0].arn
       },
       {
-        Sid = "AWSConfigBucketPutObject",
+        Sid    = "AWSConfigBucketPutObject",
         Effect = "Allow",
         Principal = {
           Service = "config.amazonaws.com"
         },
-        Action = "s3:PutObject",
+        Action   = "s3:PutObject",
         Resource = "${aws_s3_bucket.logs[0].arn}/*",
         Condition = {
           StringEquals = {
