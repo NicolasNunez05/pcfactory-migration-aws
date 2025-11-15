@@ -121,8 +121,12 @@ jobs:
       
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          role-to-assume: arn:aws:iam::787124622819:role/GitHub-Actions-Deploy-Role  
           aws-region: ${{ env.AWS_REGION }}
+          role-duration-seconds: 3600
+      
+      - name: Verify AWS credentials
+        run: aws sts get-caller-identity
       
       - name: Login to ECR
         id: login-ecr
