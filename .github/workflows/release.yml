@@ -1,0 +1,47 @@
+name: Automated Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "tests/**"
+      - "Dockerfile"
+      - ".github/workflows/ci.yml"
+
+jobs:
+  release:
+    name:  Create Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - uses: PaulHatch/semantic-version-action@v5
+        id: version
+        with:
+          tag_prefix: "v"
+          major_pattern: "BREAKING CHANGE:"
+          minor_pattern: "feat:"
+          version_format: "${major}.${minor}.${patch}"
+      
+      - name: Create Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          release_name: Release ${{ steps.version.outputs.version }}
+          body: |
+            ## Changes in this Release
+            - See commit history for details
+            
+            ## Docker Image
+            \`\`\`
+            docker pull 787124622819.dkr.ecr.us-east-1.amazonaws.com/pcfactory-app:${{ steps.version.outputs.version }}
+            \`\`\`
+          draft: false
+          prerelease: false
