@@ -1,0 +1,45 @@
+name: Terraform Validate
+
+on:
+  push:
+    paths:
+      - 'fase2-aws/**'
+      - '.github/workflows/terraform-validate.yml'
+  pull_request:
+    paths:
+      - 'fase2-aws/**'
+
+jobs:
+  validate:
+    name:  Terraform Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.0
+      
+      - name: Terraform Format Check
+        run: |
+          cd fase2-aws
+          terraform fmt -check -recursive
+      
+      - name: Terraform Init
+        run: |
+          cd fase2-aws
+          terraform init -backend=false
+      
+      - name: Terraform Validate
+        run: |
+          cd fase2-aws
+          terraform validate
+      
+      - name: TFLint
+        uses: terraform-linters/setup-tflint@v3
+      
+      - name: Run TFLint
+        run: |
+          cd fase2-aws
+          tflint --init
+          tflint --format compact

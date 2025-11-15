@@ -132,3 +132,75 @@ jobs:
           echo "════════════════════════════════════"
           echo "✅ WORKFLOW COMPLETED"
           echo "════════════════════════════════════"
+
+  deploy-to-ec2:
+    name: 🚀 Deploy to EC2
+    runs-on: ubuntu-latest
+    needs: [test, security-scan, docker]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: us-east-1
+      
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+      
+      - name: Build and Push Docker
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPO:${{ github.sha }} .
+          docker push $ECR_REGISTRY/$ECR_REPO:${{ github.sha }}
+      
+      - name: Deploy to EC2 instances  # ← TU SCRIPT VA AQUÍ
+        run: |
+          # Obtener instancias
+          INSTANCE_IDS=$(aws ec2 describe-instances \
+            --filters "Name=tag:Environment,Values=production" \
+            --query "Reservations[*].Instances[*].InstanceId" \
+            --output text)
+          
+          # Crear script
+          DEPLOY_SCRIPT="
+          #!/bin/bash
+          set -e
+          
+          ECR_IMAGE=\"$ECR_REGISTRY/$ECR_REPO:latest\"
+          CONTAINER_NAME=\"pcfactory-app\"
+          CONTAINER_PORT=8080
+          HOST_PORT=8080
+          
+          echo \"📦 Pulling image: \$ECR_IMAGE\"
+          aws ecr get-login-password | docker login --username AWS --password-stdin $ECR_REGISTRY
+          docker pull \$ECR_IMAGE
+          
+          echo \"🛑 Stopping old container...\"
+          docker stop \$CONTAINER_NAME || true
+          docker rm \$CONTAINER_NAME || true
+          
+          echo \"🚀 Starting new container...\"
+          docker run -d \
+            --name \$CONTAINER_NAME \
+            -p \$HOST_PORT:\$CONTAINER_PORT \
+            -e ENVIRONMENT=production \
+            -e AWS_REGION=us-east-1 \
+            --restart unless-stopped \
+            \$ECR_IMAGE
+          
+          echo \"✅ Container started successfully\"
+          docker ps | grep \$CONTAINER_NAME
+          "
+          
+          # Ejecutar en cada instancia
+          for INSTANCE in $INSTANCE_IDS; do
+            echo "📤 Deploying to instance: $INSTANCE"
+            aws ssm send-command \
+              --instance-ids "$INSTANCE" \
+              --document-name "AWS-RunShellScript" \
+              --parameters "commands=['$DEPLOY_SCRIPT']"
+          done
