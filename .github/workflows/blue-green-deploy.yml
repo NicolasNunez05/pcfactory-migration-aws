@@ -35,21 +35,17 @@ jobs:
           # Obtener ALB
           ALB=$(aws elbv2 describe-load-balancers \
             --query 'LoadBalancers[?LoadBalancerName==`pcfactory-alb`].LoadBalancerArn' \
-            --output text)
+            --output text \
+            --region us-east-1)
           
-          # Obtener target group actual
-          ACTIVE_TG=$(aws elbv2 describe-listeners \
-            --load-balancer-arn $ALB \
-            --query 'Listeners.DefaultActions.TargetGroupArn' \
-            --output text)
+          echo "ALB: $ALB"
           
-          if [[ "$ACTIVE_TG" == *"blue"* ]]; then
-            echo "current=blue" >> $GITHUB_OUTPUT
-            echo "next=green" >> $GITHUB_OUTPUT
-          else
-            echo "current=green" >> $GITHUB_OUTPUT
-            echo "next=blue" >> $GITHUB_OUTPUT
+          if [ -z "$ALB" ]; then
+            echo "❌ ALB not found"
+            exit 1
           fi
+
+        
       
       - name: Deploy to ${{ steps.current.outputs.next }} environment
         run: |
@@ -108,3 +104,19 @@ jobs:
           fi
           
           echo "✅ Deployment successful"
+
+            ACTIVE_TG=$(aws elbv2 describe-listeners \
+                  --load-balancer-arn "$ALB" \
+                  --query 'Listeners[0].DefaultActions[0].TargetGroupArn' \
+                  --output text \
+                  --region us-east-1)
+                
+                echo "Active TG: $ACTIVE_TG"
+                
+                if [[ "$ACTIVE_TG" == *"blue"* ]]; then
+                  echo "current=blue" >> $GITHUB_OUTPUT
+                  echo "next=green" >> $GITHUB_OUTPUT
+                else
+                  echo "current=green" >> $GITHUB_OUTPUT
+                  echo "next=blue" >> $GITHUB_OUTPUT
+                fi
