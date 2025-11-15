@@ -26,7 +26,7 @@ resource "aws_db_instance" "postgresql" {
   instance_class        = "db.t3.micro"
   allocated_storage     = 20
   storage_type          = "gp3"
-  storage_encrypted     = false
+  storage_encrypted     = true
 
   # Database
   db_name  = var.db_name
@@ -40,7 +40,7 @@ resource "aws_db_instance" "postgresql" {
   publicly_accessible    = false
 
   # High Availability (desactivado para dev)
-  multi_az = false
+  multi_az = true
 
   # Backup y Maintenance
   backup_retention_period = 0
@@ -52,6 +52,7 @@ resource "aws_db_instance" "postgresql" {
 
   tags = {
     Name = "${var.project_name}-postgresql"
+    Backup = "true"  
   }
 }
 

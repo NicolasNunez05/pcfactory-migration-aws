@@ -82,6 +82,7 @@ module "compute" {
   source = "../../modules/compute"
 
   project_name          = "pcfactory-migration"
+  private_app_subnets = ["10.0.1.0/24", "10.0.2.0/24"]
   vpc_id                = module.networking.vpc_id
   app_subnet_ids        = module.networking.private_app_subnet_ids
   app_security_group_id = module.security.app_sg_id

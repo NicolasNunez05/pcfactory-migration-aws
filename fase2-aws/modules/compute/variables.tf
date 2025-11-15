@@ -16,6 +16,10 @@ variable "vpc_cidr" {
   default     = "10.100.0.0/16"
 }
 
+variable "private_app_subnets" {
+  description = "Private app subnet IDs"
+  type        = list(string)
+}
 
 variable "web_subnet_ids" {
   description = "IDs de las subredes públicas web"

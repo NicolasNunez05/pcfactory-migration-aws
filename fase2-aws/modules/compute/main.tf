@@ -275,56 +275,6 @@ resource "aws_iam_instance_profile" "jenkins_profile" {
 }
 
 # Jenkins EC2 Instance
-resource "aws_instance" "jenkins" {
-  ami                         = data.aws_ami.amazon_linux_2023.id
-  instance_type               = "t3.small"
-  subnet_id                   = var.web_subnet_ids[0]
-  vpc_security_group_ids      = [aws_security_group.jenkins.id]
-  associate_public_ip_address = true
-  iam_instance_profile        = aws_iam_instance_profile.jenkins_profile.name
-
-  user_data = base64encode(<<-EOF
-              #!/bin/bash
-              set -e
-              
-              # Update system
-              apt-get update
-              apt-get upgrade -y
-              
-              # Install Docker
-              apt-get install -y docker.io
-              usermod -aG docker ubuntu
-              systemctl start docker
-              systemctl enable docker
-              
-              # Install AWS CLI
-              apt-get install -y awscli
-              
-              # Install Git
-              apt-get install -y git
-              
-              # Pull and run Jenkins (Docker)
-              docker run -d \
-                -p 8080:8080 \
-                -p 50000:50000 \
-                -v /var/run/docker.sock:/var/run/docker.sock \
-                -v jenkins_home:/var/jenkins_home \
-                --restart always \
-                jenkins/jenkins:lts
-              
-              # Disable Jenkins security for first access
-              sleep 30
-              docker exec $(docker ps -q -f name=jenkins) sed -i 's/<useSecurity>true<\/useSecurity>/<useSecurity>false<\/useSecurity>/g' /var/jenkins_home/config.xml || true
-              docker restart $(docker ps -q -f name=jenkins)
-              
-              echo "✅ Jenkins y Docker instalados automáticamente"
-              EOF
-  )
-
-  tags = {
-    Name = "${var.project_name}-jenkins-server"
-  }
-}
 
 # ========================================
 # AUTO SCALING GROUP
@@ -424,22 +374,3 @@ resource "aws_iam_role_policy_attachment" "xray" {
 # OUTPUTS - JENKINS DETAILS
 # ============================================================================
 
-output "jenkins_public_ip" {
-  value       = aws_instance.jenkins.public_ip
-  description = "IP pública de Jenkins"
-}
-
-output "jenkins_url" {
-  value       = "http://${aws_instance.jenkins.public_ip}:8080"
-  description = "URL de Jenkins"
-}
-
-output "jenkins_security_group_id" {
-  value       = aws_security_group.jenkins.id
-  description = "Security Group ID de Jenkins"
-}
-
-output "jenkins_instance_id" {
-  value       = aws_instance.jenkins.id
-  description = "EC2 Instance ID de Jenkins"
-}

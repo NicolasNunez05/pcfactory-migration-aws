@@ -1,0 +1,57 @@
+name: Terraform Plan
+
+on:
+  pull_request:
+    paths:
+      - 'fase2-aws/**'
+
+permissions:
+  pull-requests: write
+
+jobs:
+  plan:
+    name: 📋 Terraform Plan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.0
+      
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: us-east-1
+      
+      - name: Terraform Plan
+        id: plan
+        run: |
+          cd fase2-aws
+          terraform init
+          terraform plan -no-color -out=tfplan
+          terraform show -json tfplan > plan.json
+      
+      - name: Comment Plan in PR
+        uses: actions/github-script@v6
+        if: github.event_name == 'pull_request'
+        with:
+          script: |
+            const fs = require('fs');
+            const plan = JSON.parse(fs.readFileSync('fase2-aws/plan.json'));
+            
+            let comment = '## 📋 Terraform Plan\n\n';
+            comment += `**Resources to change:** ${plan.resource_changes.length}\n`;
+            comment += '```\n';
+            comment += plan.resource_changes
+              .map(r => `${r.actions}: ${r.address}`)
+              .join('\n');
+            comment += '\n```';
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });

@@ -45,3 +45,12 @@ variable "availability_zones" {
 }
 
 
+variable "max_size" {
+  type = number
+  default = 5
+}
+
+variable "db_username" {
+  type = string
+  default = "admin"
+}

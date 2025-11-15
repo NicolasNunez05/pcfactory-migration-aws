@@ -75,6 +75,9 @@ resource "aws_s3_bucket_lifecycle_configuration" "backups" {
   rule {
     id     = "backups-lifecycle-rule"
     status = "Enabled"
+    filter {
+      prefix = "backups/"
+    }
 
     # Transición a STANDARD_IA
     transition {
