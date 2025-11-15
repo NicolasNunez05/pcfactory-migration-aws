@@ -1,0 +1,67 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Automated RDS Backup with daily execution"
+
+Resources:
+  RDSBackupRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: RDSBackupLambdaRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: RDSBackupPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - rds:CreateDBSnapshot
+                  - rds:StartExportTask
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                Resource: "arn:aws:s3:::pcfactory-backups/*"
+
+  BackupLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: pcfactory-rds-backup
+      Runtime: python3.11
+      Role: !GetAtt RDSBackupRole.Arn
+      Handler: index.lambda_handler
+      Code:
+        ZipFile: |
+          [CÓDIGO DE backup-rds.py AQUÍ]
+      Timeout: 300
+
+  BackupSchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: pcfactory-daily-backup
+      ScheduleExpression: "cron(2 0 * * ? *)"  # 00:02 UTC = 21:02 CLT
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt BackupLambda.Arn
+          Id: RDSBackupTarget
+
+  BackupLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref BackupLambda
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt BackupSchedule.Arn
+
+Outputs:
+  BackupLambdaArn:
+    Value: !GetAtt BackupLambda.Arn
+  BackupScheduleArn:
+    Value: !GetAtt BackupSchedule.Arn
