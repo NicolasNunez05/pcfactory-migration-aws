@@ -5,7 +5,9 @@ on:
     workflows: ["CI - Build & Test & Deploy"]
     types: [completed]
     branches: [main]
-
+  push:
+    branches:
+      - disabled  # ← Nunca se ejecuta porque no hay rama "disabled"
 permissions:
   id-token: write
   contents: read
