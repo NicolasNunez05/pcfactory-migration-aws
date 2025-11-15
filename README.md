@@ -42,3 +42,7 @@ Aunque no se han creado físicamente en la simulación, el diseño contempla:
 - VPN-Users (contiene user1 a user8)
 
 **Nota:** En un entorno de producción real, estos usuarios y grupos se crearían en el Active Directory y se utilizarían para políticas de acceso y autenticación.
+## CI/CD Pipeline
+
+Este proyecto usa GitHub Actions para automatizaci�n.
+Ver workflows en: .github/workflows/
