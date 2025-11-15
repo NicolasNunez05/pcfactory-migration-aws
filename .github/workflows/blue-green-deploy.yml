@@ -107,12 +107,13 @@ jobs:
           
           echo "✅ Deployment successful"
       
-      - name: Slack Notification
-        if: always()
-        uses: slackapi/slack-github-action@v1
-        with:
-          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
-          payload: |
-            {
-              "text": "Blue-Green Deployment: ${{ job.status == 'success' && '✅ SUCCESS' || '❌ FAILED' }}"
-            }
+      #- name: Slack Notification
+       # uses: slackapi/slack-github-action@v1.24.0
+      #  if: always()
+      #  with:
+      #    webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+     #     payload: |
+      #      {
+       #       "text": "Blue-Green Deployment: ${{ job.status }}",
+     #         "channel": "#deployments"
+      #      }
