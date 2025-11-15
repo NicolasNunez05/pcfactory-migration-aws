@@ -22,10 +22,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - uses: aws-actions/configure-aws-credentials@v4
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          role-to-assume: arn:aws:iam::787124622819:role/GitHub-Actions-Deploy-Role
           aws-region: ${{ env.AWS_REGION }}
+          role-duration-seconds: 3600
       
       - name: Get current target group
         id: current
@@ -106,14 +108,3 @@ jobs:
           fi
           
           echo "✅ Deployment successful"
-      
-      #- name: Slack Notification
-       # uses: slackapi/slack-github-action@v1.24.0
-      #  if: always()
-      #  with:
-      #    webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
-     #     payload: |
-      #      {
-       #       "text": "Blue-Green Deployment: ${{ job.status }}",
-     #         "channel": "#deployments"
-      #      }
