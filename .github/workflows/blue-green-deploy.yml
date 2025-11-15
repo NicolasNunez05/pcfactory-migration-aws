@@ -1,0 +1,118 @@
+name: Blue-Green Deployment
+
+on:
+  workflow_run:
+    workflows: ["CI - Build & Test & Deploy"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  blue-green:
+    name: 🔵🟢 Blue-Green Deployment
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Get current target group
+        id: current
+        run: |
+          # Obtener ALB
+          ALB=$(aws elbv2 describe-load-balancers \
+            --query 'LoadBalancers[?LoadBalancerName==`pcfactory-alb`].LoadBalancerArn' \
+            --output text)
+          
+          # Obtener target group actual
+          ACTIVE_TG=$(aws elbv2 describe-listeners \
+            --load-balancer-arn $ALB \
+            --query 'Listeners.DefaultActions.TargetGroupArn' \
+            --output text)
+          
+          if [[ "$ACTIVE_TG" == *"blue"* ]]; then
+            echo "current=blue" >> $GITHUB_OUTPUT
+            echo "next=green" >> $GITHUB_OUTPUT
+          else
+            echo "current=green" >> $GITHUB_OUTPUT
+            echo "next=blue" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Deploy to ${{ steps.current.outputs.next }} environment
+        run: |
+          echo "Deploying to ${{ steps.current.outputs.next }} environment..."
+          # Tu deploy script existente se ejecuta aquí
+          # Utiliza el deploy-to-ec2.sh que ya tienes
+      
+      - name: Smoke tests
+        run: |
+          # Health check
+          curl -f http://localhost:8080/health || exit 1
+          echo "✅ Health check passed"
+      
+      - name: Switch traffic to ${{ steps.current.outputs.next }}
+        run: |
+          ALB=$(aws elbv2 describe-load-balancers \
+            --query 'LoadBalancers[?LoadBalancerName==`pcfactory-alb`].LoadBalancerArn' \
+            --output text)
+          
+          LISTENER=$(aws elbv2 describe-listeners \
+            --load-balancer-arn $ALB \
+            --query 'Listeners.ListenerArn' \
+            --output text)
+          
+          NEXT_TG=$(aws elbv2 describe-target-groups \
+            --load-balancer-arn $ALB \
+            --names pcfactory-${{ steps.current.outputs.next }} \
+            --query 'TargetGroups.TargetGroupArn' \
+            --output text)
+          
+          aws elbv2 modify-listener \
+            --listener-arn $LISTENER \
+            --default-actions Type=forward,TargetGroupArn=$NEXT_TG
+          
+          echo "✅ Traffic switched to ${{ steps.current.outputs.next }}"
+      
+      - name: Monitor for errors
+        run: |
+          echo "Monitoring for 5 minutes..."
+          sleep 300
+          
+          # Check for errors
+          ERROR_COUNT=$(aws cloudwatch get-metric-statistics \
+            --namespace AWS/ApplicationELB \
+            --metric-name HTTPCode_Target_5XX_Count \
+            --start-time $(date -u -d '5 minutes ago' +%Y-%m-%dT%H:%M:%S) \
+            --end-time $(date -u +%Y-%m-%dT%H:%M:%S) \
+            --period 300 \
+            --statistics Sum \
+            --query 'Datapoints.Sum' \
+            --output text)
+          
+          if [[ "$ERROR_COUNT" -gt 5 ]]; then
+            echo "❌ Too many errors detected"
+            exit 1
+          fi
+          
+          echo "✅ Deployment successful"
+      
+      - name: Slack Notification
+        if: always()
+        uses: slackapi/slack-github-action@v1
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          payload: |
+            {
+              "text": "Blue-Green Deployment: ${{ job.status == 'success' && '✅ SUCCESS' || '❌ FAILED' }}"
+            }
