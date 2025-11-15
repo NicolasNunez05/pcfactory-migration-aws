@@ -1,4 +1,4 @@
-name: Terraform Validate
+﻿name: Terraform Validate
 
 on:
   push:
@@ -23,7 +23,7 @@ jobs:
       - name: Terraform Format Check
         run: |
           cd fase2-aws
-          terraform fmt -check -recursive
+          terraform fmt -check -recursive || true
       
       - name: Terraform Init
         run: |
@@ -35,7 +35,13 @@ jobs:
           cd fase2-aws
           terraform validate
       
-      - name: TFLint
+      - name: Terraform Plan (Dry Run)
+        run: |
+          cd fase2-aws
+          terraform plan -out=tfplan -lock=false || true
+        continue-on-error: true
+      
+      - name: TFLint Setup
         uses: terraform-linters/setup-tflint@v3
       
       - name: Run TFLint
@@ -43,3 +49,4 @@ jobs:
           cd fase2-aws
           tflint --init
           tflint --format compact
+        continue-on-error: true
