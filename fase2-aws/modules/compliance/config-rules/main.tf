@@ -18,6 +18,8 @@ data "aws_region" "current" {}
 resource "aws_iam_role" "config" {
   name = "${var.project_name}-${var.environment}-config-role"
 
+  force_detach_policies = true  
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{

@@ -19,6 +19,8 @@ resource "aws_s3_bucket" "backups" {
   count  = var.enable_backups_bucket ? 1 : 0
   bucket = "${var.project_name}-backups-${var.environment}"
 
+  force_destroy = true  
+
   tags = merge(
     {
       Name        = "${var.project_name}-backups-${var.environment}"
@@ -140,6 +142,8 @@ resource "aws_s3_bucket" "logs" {
   count  = var.enable_logs_bucket ? 1 : 0
   bucket = "${var.project_name}-logs-${var.environment}"
 
+  force_destroy = true
+
   tags = merge(
     {
       Name        = "${var.project_name}-logs-${var.environment}"
@@ -249,6 +253,8 @@ resource "aws_s3_bucket_policy" "logs" {
 resource "aws_s3_bucket" "artifacts" {
   count  = var.enable_artifacts_bucket ? 1 : 0
   bucket = "${var.project_name}-artifacts-${var.environment}"
+
+  force_destroy = true
 
   tags = merge(
     {
